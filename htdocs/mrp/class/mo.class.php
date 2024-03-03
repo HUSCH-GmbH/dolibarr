@@ -2162,7 +2162,7 @@ class MoLine extends CommonObjectLine
 	 */
 	public function delete(User $user, $forceDelete = false, $notrigger = false)
 	{
-		if (!$forceDelete) {
+    if (!$forceDelete) {
 			$tmpmo = new Mo($this->db);
 			$tmpmo->fetch($this->fk_mo);
 			if (!$tmpmo->getDeleteLineIsAllowedByStatus()) {

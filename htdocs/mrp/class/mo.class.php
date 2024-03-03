@@ -875,6 +875,13 @@ class Mo extends CommonObject
 			}
 		}
 
+		if (!$error) {
+			$result = $this->deleteCommon($user, $notrigger);
+			if ($result < 0) {
+				$error++;
+			}
+		}
+
 		if ($error) {
 			$this->db->rollback();
 			return -1;

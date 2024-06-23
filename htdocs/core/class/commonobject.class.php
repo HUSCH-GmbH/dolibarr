@@ -5170,7 +5170,7 @@ abstract class CommonObject
 		$description = '';
 
 		// Line in view mode
-		if ($action != 'editline' || $selected != $line->id) {
+		if ($action != 'edittextblockline' || $selected != $line->id) {
 			// Product
 			if (!empty($line->fk_product) && $line->fk_product > 0) {
 				$product_static = new Product($this->db);
@@ -5241,11 +5241,7 @@ abstract class CommonObject
 		}
 
 		// Line in update mode
-		if ($this->statut == 0 && $action == 'editline' && $selected == $line->id) {
-			$label = (!empty($line->label) ? $line->label : (($line->fk_product > 0) ? $line->product_label : ''));
-
-			$line->pu_ttc = price2num($line->subprice * (1 + ($line->tva_tx / 100)), 'MU');
-
+		if ($this->statut == 0 && $action == 'edittextblockline' && $selected == $line->id) {
 			// Output template part (modules that overwrite templates must declare this into descriptor)
 			// Use global variables + $dateSelector + $seller and $buyer
 			// Note: This is deprecated. If you need to overwrite the tpl file, use instead the hook printObjectLine and printObjectSubLine.

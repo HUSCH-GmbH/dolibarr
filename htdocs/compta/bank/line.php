@@ -7,7 +7,7 @@
  * Copyright (C) 2015-2017 Alexandre Spangaro	<aspangaro@open-dsi.fr>
  * Copyright (C) 2015      Jean-François Ferry	<jfefe@aternatik.fr>
  * Copyright (C) 2016      Marcos García        <marcosgdf@gmail.com>
- * Copyright (C) 2018-2024  Frédéric France         <frederic.france@free.fr>
+ * Copyright (C) 2018-2025  Frédéric France         <frederic.france@free.fr>
  * Copyright (C) 2021       Gauthier VERDOL         <gauthier.verdol@atm-consulting.fr>
  * Copyright (C) 2024		MDW							<mdeweerd@users.noreply.github.com>
  *
@@ -94,9 +94,20 @@ $object = new AccountLine($db);
 $extrafields = new ExtraFields($db);
 $extrafields->fetch_name_optionals_label($object->element);
 
+if ($id > 0) {
+	$result = $object->fetch($id);
+	if ($result <= 0) {
+		dol_syslog('Failed to read bank line with id '.$rowid, LOG_WARNING);	// This happens due to old bug that has set fk_account to null.
+		$object->id = $id;
+	}
+}
+
+
 /*
  * Actions
  */
+
+$error = 0;
 
 $parameters = array('socid' => $socid);
 $reshook = $hookmanager->executeHooks('doActions', $parameters, $object, $action); // Note that $action and $object may have been modified by some hooks
@@ -138,14 +149,6 @@ if ($action == 'confirm_delete_categ' && $confirm == "yes" && $user->hasRight('b
 }
 
 if ($user->hasRight('banque', 'modifier') && $action == "update") {
-	$error = 0;
-
-	$result = $object->fetch($rowid);
-	if ($result <= 0) {
-		dol_syslog('Failed to read bank line with id '.$rowid, LOG_WARNING);	// This happens due to old bug that has set fk_account to null.
-		$object->id = $rowid;
-	}
-
 	$acsource = new Account($db);
 	$acsource->fetch($accountoldid);
 
@@ -169,13 +172,14 @@ if ($user->hasRight('banque', 'modifier') && $action == "update") {
 		$db->begin();
 
 		$amount = price2num(GETPOST('amount'));
-		$dateop = dol_mktime(12, 0, 0, GETPOST("dateomonth"), GETPOST("dateoday"), GETPOST("dateoyear"));
-		$dateval = dol_mktime(12, 0, 0, GETPOST("datevmonth"), GETPOST("datevday"), GETPOST("datevyear"));
+		$dateop = dol_mktime(12, 0, 0, GETPOSTINT("dateomonth"), GETPOSTINT("dateoday"), GETPOSTINT("dateoyear"));
+		$dateval = dol_mktime(12, 0, 0, GETPOSTINT("datevmonth"), GETPOSTINT("datevday"), GETPOSTINT("datevyear"));
 		$sql = "UPDATE ".MAIN_DB_PREFIX."bank";
 		$sql .= " SET ";
 		// Always opened
 		if (GETPOSTISSET('value')) {
-			$sql .= " fk_type='".$db->escape(GETPOST('value'))."',";
+			$type = GETPOST('value');
+			$sql .= " fk_type='".$db->escape(empty($type) && $object->fk_type == 'SOLD' ? 'SOLD' : $type)."',";
 		}
 		if (GETPOSTISSET('num_chq')) {
 			$sql .= " num_chq='".$db->escape(GETPOST("num_chq"))."',";
@@ -256,7 +260,7 @@ if ($user->hasRight('banque', 'consolidate') && ($action == 'num_releve' || $act
 
 	if (!$error) {
 		$db->begin();
-		$object->fetch($rowid);
+
 		$oldNum_rel = $object->num_releve;
 		$id = $object->fk_account;
 
@@ -457,13 +461,13 @@ if ($result) {
 					print '</a>';
 				} elseif ($links[$key]['type'] == 'payment_salary') {
 					print '<a href="'.DOL_URL_ROOT.'/salaries/payment_salary/card.php?id='.$links[$key]['url_id'].'">';
-					print img_object($langs->trans('PaymentSalary'), 'payment').' ';
+					print img_object($langs->trans('SalaryPayment'), 'payment').' ';
 					print $langs->trans("SalaryPayment");
 					print '</a>';
 				} elseif ($links[$key]['type'] == 'payment_loan') {
 					print '<a href="'.DOL_URL_ROOT.'/loan/payment/card.php?id='.$links[$key]['url_id'].'">';
 					print img_object($langs->trans('LoanPayment'), 'payment').' ';
-					print $langs->trans("PaymentLoan");
+					print $langs->trans("LoanPayment");
 					print '</a>';
 				} elseif ($links[$key]['type'] == 'loan') {
 					print '<a href="'.DOL_URL_ROOT.'/loan/card.php?id='.$links[$key]['url_id'].'">';
@@ -637,18 +641,7 @@ if ($result) {
 
 			// Bank line
 			print '<tr><td class="toptd">'.$form->editfieldkey('RubriquesTransactions', 'custcats', '', $object, 0).'</td><td>';
-			$cate_arbo = $form->select_all_categories(Categorie::TYPE_BANK_LINE, null, 'parent', null, null, 1);
-
-			$arrayselected = array();
-
-			$c = new Categorie($db);
-			$cats = $c->containing($bankline->id, Categorie::TYPE_BANK_LINE);
-			if (is_array($cats)) {
-				foreach ($cats as $cat) {
-					$arrayselected[] = $cat->id;
-				}
-			}
-			print img_picto('', 'category', 'class="paddingright"').$form->multiselectarray('custcats', $cate_arbo, $arrayselected, null, null, null, null, "90%");
+			print $form->selectCategories(Categorie::TYPE_BANK_LINE, 'custcats', $object);
 			print "</td></tr>";
 		}
 
@@ -672,10 +665,10 @@ if ($result) {
 					current.click(function()
 					{
 						var url = "'.$urlajax.'&"+current.attr("href").split("?")[1];
+						console.log("We click on ajaxforbankoperationchange url="+url);
 						$.get(url, function(data)
 						{
-							console.log(url)
-							console.log(data)
+							console.log(data);
 							current.parent().prev().replaceWith(data);
 						});
 						return false;

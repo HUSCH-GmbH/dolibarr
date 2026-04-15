@@ -44,6 +44,12 @@ class modCaptchaStandard extends ModeleCaptcha
 	public $picto = 'fa-shield-alt';
 
 	/**
+	 * @var	int
+	 */
+	public $position = 10;
+
+
+	/**
 	 *	Constructor
 	 *
 	 *  @param		DoliDB		$db			Database handler
@@ -53,7 +59,7 @@ class modCaptchaStandard extends ModeleCaptcha
 	 */
 	public function __construct($db, $conf, $langs, $user)
 	{
-		$this->id = strtolower(preg_replace('/^modCaptcha/i', '', get_class()));
+		$this->id = strtolower(preg_replace('/^modCaptcha/i', '', get_class($this)));
 
 		$this->db = $db;
 		$this->conf = $conf;
@@ -82,21 +88,29 @@ class modCaptchaStandard extends ModeleCaptcha
 		global $db, $conf, $langs, $user;
 
 		$generator = new modGeneratePassStandard($db, $conf, $langs, $user);
+		$generator->length = '5';
 		$example = $generator->getExample();
-		$img = imagecreate(80, 32);
-		if (!$img) {
-			return "Problem with GD creation";
+
+		if (function_exists("imagecreate") && function_exists("imagepng")) {
+			$img = imagecreate(80, 32);
+			if (!$img) {
+				return "Problem with GD creation";
+			}
+			$background_color = imagecolorallocate($img, 250, 250, 250); // do not comment this line
+			$ecriture_color = imagecolorallocate($img, 0, 0, 0);
+			imagestring($img, 4, 15, 8, $example, $ecriture_color);
+
+			ob_start();
+			imagepng($img);
+			$image_data = ob_get_contents();
+			ob_end_clean();
+
+			return '<img class="inline-block valignmiddle" src="data:image/png;base64,' . base64_encode($image_data) . '" border="0" width="80" height="32" />';
+		} else {
+			// Image grise
+			$image_data_base64 = 'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAIAAAACUFjqAAAAFElEQVR4nGNsaGhgwA2Y8MiNYGkA22EBlPG3fjQAAAAASUVORK5CYII=';
+			return '<img class="inline-block valignmiddle" src="data:image/png;base64,' . $image_data_base64 . '" border="0" width="80" height="32" />';
 		}
-		$background_color = imagecolorallocate($img, 250, 250, 250);
-		$ecriture_color = imagecolorallocate($img, 0, 0, 0);
-		imagestring($img, 4, 15, 8, $example, $ecriture_color);
-
-		ob_start();
-		imagepng($img);
-		$image_data = ob_get_contents();
-		ob_end_clean();
-
-		return '<img class="inline-block valignmiddle" src="data:image/png;base64,' . base64_encode($image_data) . '" border="0" width="80" height="32" />';
 	}
 
 	/**
@@ -109,7 +123,11 @@ class modCaptchaStandard extends ModeleCaptcha
 	{
 		global $langs;
 
-		// TODO Replace the a link with a post of form.
+		$idofbutton ="actionlogin";
+
+		// Output the image by calling /core/antispamimage.php
+		// This antispamimage also record the value of code into $_SESSION['dol_antispam_value'] so we will be able to validate by calling
+		// validateCodeAfterLoginSubmit() later when we submit the login form.
 
 		$out = '<!-- Captcha -->
 		<div class="trinputlogin">
@@ -131,16 +149,23 @@ class modCaptchaStandard extends ModeleCaptcha
 		function submitFormFromCaptcha(event) {
 			console.log("submitFormFromCaptcha");
 
-	      	// Prevent the default action of the link
-    		event.preventDefault();
-      		// Search the form
+			// Prevent the default action of the link
+			event.preventDefault();
+			// Search the form
 			const form = event.target.closest("form");
 
-      		// Submit the form if found
-      		if (form) {
-        		form.submit();
-      		}
-    	}
+			// Submit the form if found
+			if (form) {
+				console.log(\'we set '.dol_escape_js($idofbutton).' to value "disabled" if found\');		/* TODO Why this ? #actionlogn seems to not exists */
+				elementid = document.getElementById(\''.dol_escape_js($idofbutton).'\');
+				console.log(elementid);
+				if (elementid) {
+					elementid.value = "disabled";
+				}
+
+				form.submit();
+			}
+		}
 		</script>
 		<!-- End code for Captcha -->'."\n";
 
@@ -157,6 +182,10 @@ class modCaptchaStandard extends ModeleCaptcha
 	 */
 	public function validateCodeAfterLoginSubmit()
 	{
-		return 1;
+		$sessionkey = 'dol_antispam_value';		// The same key than set into the /core/antispamimage.php file.
+
+		$ok = (array_key_exists($sessionkey, $_SESSION) && (strtolower($_SESSION[$sessionkey]) === strtolower(GETPOST('code', 'restricthtml')))) ? 1 : 0;
+
+		return $ok;
 	}
 }

@@ -419,11 +419,12 @@ if (empty($reshook) && $action == 'add' && $usercancreate) {
 		if (GETPOST("elementtype", 'alpha')) {
 			$elProp = getElementProperties(GETPOST("elementtype", 'alpha'));
 			$modulecodetouseforpermissioncheck = $elProp['module'];
+			$permissionelement = !empty($elProp['permissionelement']) ? $elProp['permissionelement'] : $elProp['subelement'];
 			// Keep permission check aligned with rights class aliases (see restrictedArea()).
 			if ($modulecodetouseforpermissioncheck == 'productbatch') {
 				$modulecodetouseforpermissioncheck = 'produit';
 			}
-			$submodulecodetouseforpermissioncheck = $elProp['subelement'];
+			$submodulecodetouseforpermissioncheck = $permissionelement;
 
 			$hasPermissionOnLinkedObject = 0;
 			if ($user->hasRight($modulecodetouseforpermissioncheck, 'read')) {
@@ -1865,11 +1866,12 @@ if ($action == 'create') {
 
 		$elProp = getElementProperties($origin);
 		$modulecodetouseforpermissioncheck = $elProp['module'];
+		$permissionelement = !empty($elProp['permissionelement']) ? $elProp['permissionelement'] : $elProp['element'];
 		// Keep permission check aligned with rights class aliases (see restrictedArea()).
 		if ($modulecodetouseforpermissioncheck == 'productbatch') {
 			$modulecodetouseforpermissioncheck = 'produit';
 		}
-		if ($user->hasRight($modulecodetouseforpermissioncheck, 'read') || $user->hasRight($modulecodetouseforpermissioncheck, $elProp['element'], 'read')) {
+		if ($user->hasRight($modulecodetouseforpermissioncheck, 'read') || $user->hasRight($modulecodetouseforpermissioncheck, $permissionelement, 'read')) {
 			$hasPermissionOnLinkedObject = 1;
 		}
 		//var_dump('origin='.$origin.' originid='.$originid.' hasPermissionOnLinkedObject='.$hasPermissionOnLinkedObject);
